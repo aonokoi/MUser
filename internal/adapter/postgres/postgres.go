@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"goproj/MUser/internal/domain"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -39,3 +41,43 @@ func New(ctx context.Context, c Config) (*Pool, error) {
 }
 
 // Implement CRUD
+
+func (p *Pool) CreateUser(ctx context.Context, name domain.Name, email domain.Email) (int, error) {
+	const op = "postgres.CreateUser"
+
+	sql := `
+	INSERT INTO users(name, email)
+	VALUES($1, $2)
+	RETURNING id
+	`
+
+	var id int
+
+	err := p.pool.QueryRow(ctx, sql, name, email).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("unable to create user: %s: %w", op, err)
+	}
+
+	return id, nil
+}
+
+func (p *Pool) ReadUser(ctx context.Context, id int) (domain.User, error) {
+	const op = "postgres.ReadUser"
+
+	sql := `SELECT * FROM users WHERE id = $1`
+
+	var user domain.User
+
+	err := p.pool.QueryRow(ctx, sql, id).
+		Scan(
+			&user.ID,
+			&user.Name,
+			&user.Email,
+			&user.CreatedAt,
+		)
+	if err != nil {
+		return user, fmt.Errorf("unable to read info about user: %s: %w", op, err)
+	}
+
+	return user, nil
+}
